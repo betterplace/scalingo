@@ -48,22 +48,22 @@ func maybePanic(err error) {
 	}
 }
 
-func (s *Scalingo) PrepareRequest(method, apiURL, path, token string, requestBody *bytes.Buffer) *http.Request {
+func (s *Scalingo) PrepareRequest(method, apiURL, path, token string, jsonBody *bytes.Buffer) *http.Request {
 	if apiURL == "" {
 		apiURL = s.ApiURL
 	}
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	url := s.ApiURL + path
-	return s.PrepareRequestForURL(method, url, token, requestBody)
+	url := apiURL + path
+	return s.PrepareRequestForURL(method, url, token, jsonBody)
 }
 
-func (s *Scalingo) PrepareRequestForURL(method, url, token string, requestBody *bytes.Buffer) *http.Request {
+func (s *Scalingo) PrepareRequestForURL(method, url, token string, jsonBody *bytes.Buffer) *http.Request {
 	var req *http.Request
 	var err error
-	if requestBody != nil {
-		req, err = http.NewRequest(method, url, requestBody)
+	if jsonBody != nil {
+		req, err = http.NewRequest(method, url, jsonBody)
 	} else {
 		req, err = http.NewRequest(method, url, nil)
 	}
@@ -71,42 +71,46 @@ func (s *Scalingo) PrepareRequestForURL(method, url, token string, requestBody *
 	if token == "" {
 		log.Printf("Preparing %s request of %s now.\n", method, url)
 	} else {
+		if jsonBody != nil {
+			req.Header.Set("Accept", "application/json")
+			req.Header.Set("Content-Type", "application/json")
+		}
 		req.SetBasicAuth("", token)
 		log.Printf("Preparing %s request of %s with token now.\n", method, url)
 	}
 	return req
 }
 
-func (s *Scalingo) PerformRequest(method, apiURL, path string, requestBody *bytes.Buffer) ([]byte, error) {
+func (s *Scalingo) PerformRequest(method, apiURL, path string, jsonBody *bytes.Buffer) ([]byte, error) {
 	var body []byte
 	if s.BearerToken == "" {
 		s.BearerToken = s.fetchBearerToken()
 	}
-	body, err := s.PerformRequestWithToken(method, apiURL, path, s.BearerToken, requestBody)
+	body, err := s.PerformRequestWithToken(method, apiURL, path, s.BearerToken, jsonBody)
 	if err == tokenInvalidError {
 		s.BearerToken = s.fetchBearerToken()
-		body, err = s.PerformRequestWithToken(method, apiURL, path, s.BearerToken, requestBody)
+		body, err = s.PerformRequestWithToken(method, apiURL, path, s.BearerToken, jsonBody)
 	}
 	return body, err
 }
 
-func (s *Scalingo) PerformRequestWithToken(method, apiURL, path, token string, requestBody *bytes.Buffer) ([]byte, error) {
+func (s *Scalingo) PerformRequestWithToken(method, apiURL, path, token string, jsonBody *bytes.Buffer) ([]byte, error) {
 	var err error
-	req := s.PrepareRequest(method, apiURL, path, token, requestBody)
+	req := s.PrepareRequest(method, apiURL, path, token, jsonBody)
 	var body []byte
 	s.FetchResponse(req, func(res *http.Response) {
 		if res.StatusCode == 401 {
 			err = tokenInvalidError
 			return
 		}
+		body, err = ioutil.ReadAll(res.Body)
+		maybePanic(err)
 		if res.StatusCode < 400 {
-			body, err = ioutil.ReadAll(res.Body)
-			maybePanic(err)
 			log.Printf("Performed %s request to %s successfully.\n", req.Method, req.URL)
 		} else {
 			err = fmt.Errorf(
-				"Requesting %s %s has failed with status=%d\n",
-				req.Method, req.URL, res.StatusCode,
+				"Requesting %s %s has failed with status=%d:\n%s",
+				req.Method, req.URL, res.StatusCode, string(body),
 			)
 		}
 	})

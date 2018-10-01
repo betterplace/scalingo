@@ -27,6 +27,13 @@ type Scalingo struct {
 
 var tokenInvalidError = errors.New("token invalid")
 
+type HTTPError struct {
+	msg        string
+	StatusCode int
+}
+
+func (e *HTTPError) Error() string { return e.msg }
+
 func scalingoAPIToken() string {
 	token, ok := os.LookupEnv(SCALINGO_API_TOKEN_VARIABLE)
 	if !ok {
@@ -108,10 +115,11 @@ func (s *Scalingo) PerformRequestWithToken(method, apiURL, path, token string, j
 		if res.StatusCode < 400 {
 			log.Printf("Performed %s request to %s successfully.\n", req.Method, req.URL)
 		} else {
-			err = fmt.Errorf(
+			msg := fmt.Sprintf(
 				"Requesting %s %s has failed with status=%d:\n%s",
 				req.Method, req.URL, res.StatusCode, string(body),
 			)
+			err = &HTTPError{StatusCode: res.StatusCode, msg: msg}
 		}
 	})
 	return body, err

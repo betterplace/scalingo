@@ -1,6 +1,7 @@
 package scalingo
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +10,25 @@ import (
 func TestPrepareRequestWithoutPrefix(t *testing.T) {
 	s := NewScalingo("test")
 	req := s.PrepareRequest("POST", "", "/v1/apps/foo/domains", "", nil)
-	assert.Equal(t, "https://api.scalingo.com/v1/apps/foo/domains", req.URL.String(), "URL")
+	assert.Equal(t, "https://api.scalingo.com/v1/apps/foo/domains", req.URL.String(), "correct URL")
+}
+
+func TestPrepareRequestAddsPathPrefix(t *testing.T) {
+	s := NewScalingo("test")
+	req := s.PrepareRequest("POST", "", "v1/apps/foo/domains", "", nil)
+	assert.Equal(t, "https://api.scalingo.com/v1/apps/foo/domains", req.URL.String(), "correct URL")
+}
+
+func TestPrepareRequestWithoutPrefixAndRequestBody(t *testing.T) {
+	s := NewScalingo("test")
+	req := s.PrepareRequestForURL("POST", "https://foo.bar/v1/apps/foo/domains", "test", bytes.NewBufferString(`{"foo":"bar"}`))
+	var body = make([]byte, 13)
+	n, err := req.Body.Read(body)
+	assert.Nil(t, err, "no errors")
+	assert.Equal(t, n, 13, "correct body length")
+	assert.Equal(t, `{"foo":"bar"}`, string(body), "correct body")
+	assert.Equal(t, "application/json", req.Header.Get("Accept"), "accept header set")
+	assert.Equal(t, "application/json", req.Header.Get("Content-Type"), "content-type header set")
 }
 
 func TestPrepareRequestWithPrefix(t *testing.T) {

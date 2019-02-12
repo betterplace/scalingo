@@ -2,34 +2,57 @@ package scalingo
 
 import (
 	"testing"
-)
 
-func assertEqual(t *testing.T, name string, a interface{}, b interface{}) {
-	if a != b {
-		t.Fatalf("%s: %s != %s", name, a, b)
-	}
-}
+	"github.com/stretchr/testify/assert"
+)
 
 func TestPrepareRequestWithoutPrefix(t *testing.T) {
 	s := NewScalingo("test")
 	req := s.PrepareRequest("POST", "", "/v1/apps/foo/domains", "", nil)
-	assertEqual(t, "URL", req.URL.String(), "https://api.scalingo.com/v1/apps/foo/domains")
+	assert.Equal(t, "https://api.scalingo.com/v1/apps/foo/domains", req.URL.String(), "URL")
 }
 
 func TestPrepareRequestWithPrefix(t *testing.T) {
 	s := NewScalingo("test")
 	req := s.PrepareRequest("POST", "https://foo.bar", "/v1/apps/foo/domains", "", nil)
-	assertEqual(t, "URL without Prefix", req.URL.String(), "https://foo.bar/v1/apps/foo/domains")
+	assert.Equal(t, "https://foo.bar/v1/apps/foo/domains", req.URL.String(), "URL without Prefix")
 }
 
 func TestPrepareRequestForURLWithoutToken(t *testing.T) {
 	s := NewScalingo("test")
 	req := s.PrepareRequestForURL("POST", "http://foo.bar/v1/apps/foo/domains", "", nil)
-	assertEqual(t, "Authorization", len(req.Header["Authorization"]), 0)
+	assert.Equal(t, 0, len(req.Header["Authorization"]), "Authorization not set")
 }
 
 func TestPrepareRequestForURLWithToken(t *testing.T) {
 	s := NewScalingo("test")
 	req := s.PrepareRequestForURL("POST", "http://foo.bar/v1/apps/foo/domains", "test", nil)
-	assertEqual(t, "Authorization", req.Header["Authorization"][0], "Basic OnRlc3Q=")
+	assert.Equal(t, "Basic OnRlc3Q=", req.Header["Authorization"][0], "Authorization set")
+}
+
+func TestFetchBearerToken(t *testing.T) {
+	s := NewScalingo("")
+	token := s.fetchBearerToken()
+	assert.NotEmpty(t, token, "Token is present")
+}
+
+func TestFetchBearerTokenFailure(t *testing.T) {
+	s := NewScalingo("test")
+	token := s.fetchBearerToken()
+	assert.Empty(t, token, "Token is not present")
+}
+
+func TestGetAppNames(t *testing.T) {
+	s := NewScalingo("")
+	appNames := s.GetAppNames()
+	assert.NotEmpty(t, appNames, "array of app names was returned")
+}
+
+func TestGetAppVariables(t *testing.T) {
+	s := NewScalingo("")
+	appNames := s.GetAppNames()
+	if len(appNames) > 0 {
+		appVars := s.GetAppVariables(appNames[0])
+		assert.NotEmpty(t, appVars, "map of app vars was returned")
+	}
 }

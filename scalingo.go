@@ -37,7 +37,10 @@ func (e *HTTPError) Error() string { return e.msg }
 func scalingoAPIToken() string {
 	token, ok := os.LookupEnv(SCALINGO_API_TOKEN_VARIABLE)
 	if !ok {
-		return ""
+		log.Panicf(
+			"Couldn't get Scalingo API Token via env var %s",
+			SCALINGO_API_TOKEN_VARIABLE,
+		)
 	}
 	return token
 }

@@ -155,8 +155,8 @@ func (s *Scalingo) fetchBearerToken() string {
 func (s *Scalingo) FetchResponse(req *http.Request, block func(res *http.Response)) {
 	client := &http.Client{}
 	res, err := client.Do(req)
-	defer res.Body.Close()
 	maybePanic(err)
+	defer res.Body.Close()
 	block(res)
 }
 
